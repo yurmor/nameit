@@ -1,15 +1,9 @@
-import nltk
-from nltk.corpus import names as nltknames
-from nltk.corpus import stopwords
-
 from collections import Counter
 import re
 import bs4
 
 nonnamessmbls = r':;~!#$%^&*=<>?/\|.,'
 nmbrs = '1234567890'
-
-
 
 def count_freq_words(alltxt, n = 4):
     if type(alltxt)==list:

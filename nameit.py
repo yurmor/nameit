@@ -17,24 +17,18 @@ def count_freq_words(alltxt, n = 4):
     else:
         words = [x.strip().strip(nonnamessmbls) for nm in alltxt.split() for x in nm.translate({ord(c): None for c in nmbrs + nonnamessmbls + '-'}).split()]
         words = [w for w in words if len(w)>1]
-        
-
     cnt = Counter(words)
-    nwords = len(words)
-    #print(nwords)
-    #print(cnt.most_common(10))
     notnames_list = []
     mostcommon_cntr = cnt.most_common()
     for cnted_word in mostcommon_cntr:
         wrd, noccur = cnted_word
         if noccur>n:
             notnames_list.append(wrd)
-        
-        #if noccur/nrows
     return notnames_list, cnt
 
 def filter_names(names, filter_list = []):
-    #clean up this part 
+    #todo: clean up this part 
+
     if len(names.strip().split()) <= 1:
         return ''
     #check names with ` (apostrofe)
@@ -123,6 +117,7 @@ def tag_visible(element):
     if isinstance(element, bs4.element.Comment):
         return False
     return True
+
 def contains(sentence, word_list):
     """
     Check whether or not input string sentence contains any of the words from the word_list
@@ -163,58 +158,99 @@ class Nameit():
     def __init__(self, soup):
         """Initialize object with soup  - object of the Beutifulsoup class containing html page"""
         self.soup = soup
-        self.__load_names_data()
 
+        #load first, last names, frequent english words, etc.
+        self.__load_names_data()
 
         #get all text from the visible fields
         self.visible_texts = self.get_alltext()
-        #keep only text that does not contains known names
-        self.not_names = [txt for txt in self.visible_texts if not(contains(txt, self.last_names + self.first_names))]
-        
-        self._n_limit = 3 # minimum number of word occurance to assume that this is not a name, provided that this word was not found in the list of last and first names
-        #make a list of most popular words
-        self.freq_not_names, cntr = count_freq_words(' '.join(self.not_names), n=self._n_limit)
-        self.freq_not_names = [nm for nm in self.freq_not_names if nm.lower not in self.name_prefixes and len(nm.strip())>1]
         
     def update_names(self):
-        possible_names = []
-        possible_names.extend(self.process_a_tags())
-        possible_names.extend(self.process_h_tags())
-        possible_names.extend(self.process_img_tags())
+       
+        not_names = []
+        known_names = []
+        other_words = []
+
+        punct_marks = """,.:;!?"'"""
+
+        for txt in self.visible_texts:   
+            txt = txt.translate(dict.fromkeys(map(ord, punct_marks), ' ')) 
+            words = txt.lower().strip().split()
+            words = [w.strip('-') for w in words]
+            
+            for w in words:
+                if len(w) <=1:
+                    continue
+                elif w[1]=='-':
+                    w = w[2:]
+
+                if w in self.name_prefixes:
+                    continue
+                elif w in (self.last_names + self.first_names):
+                    known_names.append(w)
+                    
+                elif w in self.common_words:
+                    not_names.append(w)
+                else:
+                    other_words.append(w)
+                    
+                    
+        freq_not_names, cntr = count_freq_words(not_names, n=1)
+
+        freq_known_names, cntr2 = count_freq_words(known_names, n=0)
+
+        freq_other_words, cntr3 = count_freq_words(other_words, n=4)
+
+        # names that can be bothe names and regular words
+        questionable_names = []
+        for wrd in freq_known_names:
+            if wrd.lower() in self.common_words:
+                questionable_names.append(wrd.lower())
         
-        self.texts_from_tags = possible_names
+        # list of names that appear too often on the page
+        too_often_names = []
+        for wfreq in cntr2.most_common():
+            if (len(known_names)>100 and wfreq[1]>0.05*len(known_names)) or (len(known_names)<=100 and wfreq[1]>=5):
+                too_often_names.append(wfreq[0])
+                freq_known_names = list(filter(lambda x: x != wfreq[0], freq_known_names))
 
-        #first iterate over the possible_names and find names that are present in self.last_names and self.first_names
-        #all names from self.first_names+ self.last_names except those that are frquent on the page
+        finalnames = []
+        questionable_names_list = []
 
-        # 1. possible names from the tags 2. frequent words in the text 3. list of names and lastnames 4. list of common words
+        for it in self.visible_texts:
+            if contains(it, freq_not_names + too_often_names + freq_other_words + stopwords):
+                continue
+            if contains(it, questionable_names):
+                questionable_names_list.append(filter_names(it))
+                continue
+            nm = filter_names(it)
+            
+            if nm!='':
+                finalnames.append(nm)
 
-        all_names = [x for x in  self.first_names+ self.last_names if x not in self.freq_not_names]
-        self.name_list = [nm for nm in possible_names if contains(nm, all_names)]
-        possible_names = [it for it in  possible_names if it not in self.name_list]
-        possible_names = [it for it in possible_names if not(contains(it, self.freq_not_names + self.common_words)) ]
-        
-        self.name_list = self.name_list + possible_names
+        self.names = list(set(finalnames))
+        self.possible_names = list(set(questionable_names_list))
 
-        #self.possible_names = [x for x in self.possible_names if len(x.split())>1 ]
-        self.name_list = list(set([it for it in [filter_names(x) for x in self.name_list] if it!='']))
-
-        return self.name_list
+        return self.names + self.possible_names
+    
     def first_last_names(self):
         """Go through the list of possible names and assign first and last name for every name"""
         return True
+    
     @property
     def n_limit(self):
         return self._n_limit
     
     @n_limit.setter
     def n_limit(self, value):
+        #not using this variable n_limit anymore
+
         if value==self._n_limit:
             return True
         
-        self._n_limit = value
+        #self._n_limit = value
         #update list of most common not words based on a new limit 
-        self.freq_not_names, cntr = count_freq_words(' '.join(self.not_names), n=self._n_limit)
+        #self.freq_not_names, cntr = count_freq_words(' '.join(self.not_names), n=self._n_limit)
         #update final results as well
 
     def __load_names_data(self):
@@ -246,7 +282,8 @@ class Nameit():
         # keep only stopwords with more than one letter
         self.stopwords = [sw for sw in self.stopwords if len(sw)>1]
 
-        # filter first and last names from possible stopwords presented in there 
+        # filter first and last names from possible stopwords presented in there
+
         sw_innames = []
         for sw in self.stopwords:
             if sw in self.first_names:
@@ -261,20 +298,18 @@ class Nameit():
         
     def get_alltext(self, soup=None):
         """Obtain all visible text from the BeautifulSoup object soup"""
-        # soup = self.soup or soup
+        soup = self.soup or soup
+        
         # texts = soup.findAll(text=True)
         # visible_texts = filter(tag_visible, texts)
         # visible_texts = [t.strip() for t in visible_texts]
         # visible_texts = [t for t in visible_texts if t!='']
-        possible_names = []
-        possible_names.extend(self.process_a_tags())
-        possible_names.extend(self.process_h_tags())
-        possible_names.extend(self.process_img_tags())
+        visible_texts = []
+        visible_texts.extend(self.process_a_tags())
+        visible_texts.extend(self.process_h_tags())
+        visible_texts.extend(self.process_img_tags())
         
         return visible_texts
-
-    def clean_page(self):
-        """Removes unnecessary symbols form the page """
         
     def process_a_tags(self):
         cur_text = []

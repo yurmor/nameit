@@ -1,10 +1,5 @@
 from collections import Counter
-import requests
 import re
-import bs4
-from bs4 import BeautifulSoup
-
-from pprint import pprint
 
 non_name_smbls = r':;~!#$%^&*=<>?/\|.,' #list of symbols that shoud not be present in a name
 nmbrs = '1234567890'
@@ -517,13 +512,4 @@ class Nameit():
 
         return table_names
 
-if __name__=='__main__':
-    ref = 'https://www.nobelprize.org/prizes/uncategorized/all-nobel-prizes-in-physics/'
-    page = requests.get(ref)
-    soup = BeautifulSoup(page.text, 'html.parser')
-    nmx = Nameit(soup)
-    names = nmx.update_names()
-    print('Found ', len(names), 'names')
-    names.sort()
-    #pprint(names)
-    pprint(nmx.assign_first_last_names())
+

@@ -14,3 +14,5 @@ names = nmx.update_names()
 print('Found ', len(names), 'names')   
 names.sort()  
 pprint(names)  
+
+see more exmaples in example.py

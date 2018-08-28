@@ -1,6 +1,10 @@
 from collections import Counter
+import requests
 import re
 import bs4
+from bs4 import BeautifulSoup
+
+from pprint import pprint
 
 nonnamessmbls = r':;~!#$%^&*=<>?/\|.,'
 nmbrs = '1234567890'
@@ -212,7 +216,7 @@ class Nameit():
         questionable_names_list = []
 
         for it in self.visible_texts:
-            if contains(it, freq_not_names + too_often_names + freq_other_words + stopwords):
+            if contains(it, freq_not_names + too_often_names + freq_other_words + self.stopwords):
                 continue
             if contains(it, questionable_names):
                 questionable_names_list.append(filter_names(it))
@@ -341,3 +345,11 @@ class Nameit():
         rslt_list = [y for x in rslt_dict.values() for y in x]
         return rslt_list
 
+if __name__=='__main__':
+    ref = 'https://www.nobelprize.org/prizes/uncategorized/all-nobel-prizes-in-physics/'
+    page = requests.get(ref)
+    soup = BeautifulSoup(page.text, 'html.parser')
+    nmx = Nameit(soup)
+    names = nmx.update_names()
+    print('Found ', len(names), 'names')
+    pprint(names)

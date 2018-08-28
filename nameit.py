@@ -352,4 +352,5 @@ if __name__=='__main__':
     nmx = Nameit(soup)
     names = nmx.update_names()
     print('Found ', len(names), 'names')
+    names.sort()
     pprint(names)
